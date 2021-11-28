@@ -7,28 +7,26 @@
 
 export HTTP_PROXY=http://proxy.cafebazaar.org:3128; export HTTPS_PROXY=http://proxy.cafebazaar.org:3128; export NO_PROXY=localhost,127.0.0.1,10.96.0.0/12,192.168.99.0/24,172.20.0.0/24
 
+
+#### setup k8s for staging
+
 # install one of the minikube drivers such as kvm2 or docker
-minikube start --cpus 4 --memory 6144 --driver docker # or kvm2
-minikube start --memory=max --cpus=max --driver docker --node 3
+minikube start --cpus 5 --memory 9384 --driver docker --nodes 3 # or kvm2
+# minikube start --memory=max --cpus=max --driver docker --nodes 3
 
-
+minikube addons enable ingress
 minikube plugin kube-stat-metrics
-
-
-
-
-
 # multi node cluster
 https://minikube.sigs.k8s.io/docs/tutorials/multi_node/
-
-
 # deploy metrics API
 # error: Metrics API not available 
 # minikube addons enable metrics-server or deploy on cluster
-
 kubectl cluster-info
 minikube dashboard
 
+
+
+#### deploy elasticsearch operator and crds
 
 kubectl create -f https://download.elastic.co/downloads/eck/1.8.0/crds.yaml
 kubectl get crds

@@ -3,7 +3,7 @@ kind: Kibana
 metadata:
   name: kibana-monitoring
 spec:
-  version: 7.14.0
+  version: 7.15.2
   count: 1
   elasticsearchRef:
     name: elasticsearch-monitoring
@@ -11,4 +11,5 @@ spec:
     # enable the UI to reflect container level CPU usage, only displays info if CPU limits are set on the monitored ES cluster
     # https://www.elastic.co/guide/en/kibana/current/monitoring-settings-kb.html
     monitoring.ui.container.elasticsearch.enabled: true
+---
 
