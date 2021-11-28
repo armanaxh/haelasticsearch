@@ -1,0 +1,174 @@
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: elasticsearch
+spec:
+  version: 7.15.2
+  nodeSets:
+  - name: master
+    count: 3
+    config:
+      node.remote_cluster_client: false
+      node.master: true
+      node.store.allow_mmap: false # for test read configure store module
+      xpack.monitoring.collection.enabled: true # for monitorbeat 
+      xpack.monitoring.elasticsearch.collection.enabled: false  # for monitorbeat
+    podTemplate:
+      metadata:
+        labels:
+          app: elasticsearch
+          scrape: es # monitorbeat label
+      spec:
+        initContainers:
+        - name: sysctl
+          securityContext:
+            privileged: true
+          command: ['sh', '-c', 'sysctl -w vm.max_map_count=262144']
+        - name: install-plugin
+          command:
+          - sh
+          - -c
+          - |
+            bin/elasticsearch-plugin install --batch repository-s3
+        - name: add-aws-keys
+          env:
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: aws-s3-keys
+                key: access-key-id
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: aws-s3-keys
+                key: access-secret-key
+          command:
+          - sh
+          - -c
+          - |
+            echo $AWS_ACCESS_KEY_ID | bin/elasticsearch-keystore add --stdin --force s3.client.default.access_key
+            echo $AWS_SECRET_ACCESS_KEY | bin/elasticsearch-keystore add --stdin --force s3.client.default.secret_key
+        containers:
+        - name: elasticsearch
+          # specify resource limits and requests
+          resources:
+            requests:
+              memory: 3Gi
+              cpu: 0.5
+            limits:
+              memory: 3Gi
+              cpu: 1
+          env:
+          - name: ES_JAVA_OPTS
+            value: "-Xms2g -Xmx2g"
+        spec:
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchLabels:
+                      elasticsearch.k8s.elastic.co/cluster-name: quickstart
+                  topologyKey: kubernetes.io/hostname
+    count: 3
+
+
+  - name: ingest-data
+    count: 3
+    config:
+      node.data: true
+      node.ingest: true
+      node.ml: true
+      node.remote_cluster_client: false
+      node.store.allow_mmap: false # for test read configure store module
+      xpack.monitoring.collection.enabled: true # for monitorbeat
+      xpack.monitoring.elasticsearch.collection.enabled: false # for monitorbeat
+    podTemplate:
+      metadata:
+        labels:
+          app: elasticsearch
+          scrape: es # monitorbeat label
+      spec:
+        initContainers:
+        - name: sysctl
+          securityContext:
+            privileged: true
+          command: ['sh', '-c', 'sysctl -w vm.max_map_count=262144']
+        - name: install-plugin
+          command:
+          - sh
+          - -c
+          - |
+            bin/elasticsearch-plugin install --batch repository-s3
+        - name: add-aws-keys
+          env:
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: aws-s3-keys
+                key: access-key-id
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: aws-s3-keys
+                key: access-secret-key
+          command:
+          - sh
+          - -c
+          - |
+            echo $AWS_ACCESS_KEY_ID | bin/elasticsearch-keystore add --stdin --force s3.client.default.access_key
+            echo $AWS_SECRET_ACCESS_KEY | bin/elasticsearch-keystore add --stdin --force s3.client.default.secret_key
+        containers:
+        - name: elasticsearch
+          # specify resource limits and requests
+          resources:
+            requests:
+              memory: 3Gi
+              cpu: 0.5
+            limits:
+              memory: 3Gi
+              cpu: 1
+          env:
+          - name: ES_JAVA_OPTS
+            value: "-Xms2g -Xmx2g"
+        spec:
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  labelSelector:
+                    matchLabels:
+                      elasticsearch.k8s.elastic.co/cluster-name: quickstart
+                  topologyKey: kubernetes.io/hostname
+    count: 3
+
+    # request 10Gi of persistent data storage for pods in this topology element
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        storageClassName: standard
+        resources:
+          requests:
+            storage: 10Gi
+  # http:
+  #   service:
+  #     spec:
+  #       expose this cluster Service with a LoadBalancer
+  #       type: LoadBalancer
+  # tls:
+  #   certificate:
+  #     secretName: elasticsearch-es-http-certs-public
+  #     selfSignedCertificate:
+  #       # add a list of SANs into the self-signed HTTP certificate
+  #       subjectAltNames:
+  #       - ip: 192.168.1.2
+  #       - ip: 192.168.1.3
+  #       - dns: elasticsearch-sample.example.com
+  #     certificate:
+  #       # provide your own certificate
+  #       secretName: my-cert
